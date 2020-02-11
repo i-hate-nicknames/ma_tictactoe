@@ -3,13 +3,13 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"net"
-	"strconv"
 )
 
-func startServer(port int) {
-	serverSock, err := net.Listen("tcp4", ":"+strconv.Itoa(port))
+func startServer(port string) {
+	serverSock, err := net.Listen("tcp4", ":"+port)
 	if err != nil {
 		log.Fatalf("Failed to start a server: %s\n", err)
 	}
@@ -30,6 +30,10 @@ func handleClient(conn net.Conn) {
 	reader := bufio.NewReader(conn)
 	for {
 		data, err := reader.ReadString('\n')
+		if err == io.EOF {
+			log.Printf("Client disconnected")
+			return
+		}
 		if err != nil {
 			log.Printf("Error reading from client %s\n", err)
 			return

@@ -9,9 +9,8 @@ import (
 
 // connect to the server, send string, receive a single response
 // and print it
-func startClient(host, port string) {
-	addr := host + ":" + port
-	log.Println("Starting client, connecting to" + addr)
+func startClient(addr string) {
+	log.Println("Starting client, connecting to " + addr)
 	conn, err := net.Dial("tcp4", addr)
 	if err != nil {
 		log.Fatalf("Couldn't connect to %s", addr)
