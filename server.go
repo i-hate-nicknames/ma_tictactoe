@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"strings"
 )
 
 func startServer(port string) {
@@ -38,6 +39,7 @@ func handleClient(conn net.Conn) {
 			log.Printf("Error reading from client %s\n", err)
 			return
 		}
-		fmt.Fprintf(conn, data+" yourself")
+		data = strings.Trim(data, "\n")
+		fmt.Fprintln(conn, data+" yourself")
 	}
 }
