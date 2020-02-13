@@ -107,13 +107,22 @@ func (b *Board) GetBoardState() (BoardState, Player) {
 }
 
 // wrapper around calcLineState that allows passing previously calculated state (in some other line)
-// in case there is already a line with PLAYING or WON state, there is no point in calculating state of
-// any other line, we can just return that state.
+// In case there is already a line with a WON state, there is no point in calculating state of
+// any other line, we can just return that state
+// If there is a line with PLAYING state, there could still potentially be a WON line, so we need to
+// check for that. If we can't find a WON, we stay with PLAYING
 func (b *Board) getLineState(x, y, dx, dy int, knownState BoardState) BoardState {
-	if knownState != TIE {
+	// if we already know that someone won, there is no point in searching
+	if knownState == O_WON || knownState == X_WON {
 		return knownState
 	}
-	return b.calcLineState(x, y, dx, dy)
+	nextState := b.calcLineState(x, y, dx, dy)
+	if nextState == TIE {
+		// if the line to check is a tie, return previously known state which could be either also a tie,
+		// or PLAYING
+		return knownState
+	}
+	return nextState
 }
 
 // calculate state of the given line. The line is specified as start point at x and y,
@@ -125,8 +134,8 @@ func (b *Board) getLineState(x, y, dx, dy int, knownState BoardState) BoardState
 // Otherwise (the line is a mix of different player cells) it's a tie
 func (b *Board) calcLineState(x, y, dx, dy int) BoardState {
 	spotted := NONE
-	for i := y; i > 0 && i <= b.size; i += dy {
-		for j := x; j > 0 && j <= b.size; j += dx {
+	for i := y; i >= 0 && i < b.size; i += dy {
+		for j := x; j >= 0 && j < b.size; j += dx {
 			cell := b.grid[i][j]
 			if cell == NONE {
 				// if there is an empty cell left, we continue playing
@@ -183,7 +192,7 @@ func (b *Board) String() string {
 	case TIE:
 		boardStateStr = "TIE"
 	case PLAYING:
-		boardStateStr = "TIE"
+		boardStateStr = "PLAYING"
 	case O_WON:
 		boardStateStr = "Player O wins!"
 	case X_WON:
