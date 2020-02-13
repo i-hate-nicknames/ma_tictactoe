@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 )
 
 var remoteAddr string
@@ -19,7 +20,26 @@ func printUsage() {
 }
 
 func main() {
-	testGame()
+	flag.Parse()
+	if remoteAddr == "" {
+		// try to run a server and connect to it locally as a client
+		if serverPort == "" {
+			fmt.Println("Server port missing")
+			printUsage()
+			os.Exit(1)
+		} else {
+			runAsServer(serverPort)
+		}
+	} else {
+		// try to connect to a remote server
+		if serverPort != "" {
+			fmt.Println("Cannot use both server port and host to connect to: please choose your role")
+			printUsage()
+			os.Exit(1)
+		} else {
+			runAsClient(remoteAddr)
+		}
+	}
 }
 
 func testGame() {
