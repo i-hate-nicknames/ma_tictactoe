@@ -19,8 +19,16 @@ func printUsage() {
 }
 
 func main() {
+	testGame()
+}
+
+func testGame() {
 	game := MakeBoard(3)
-	err := game.SetValue(OCCUPIED_X, 0, 0)
+	err := game.MakeMove(PLAYER_X, 0, 0)
+	err = game.MakeMove(PLAYER_O, 1, 0)
+	err = game.MakeMove(PLAYER_X, 0, 1)
+	err = game.MakeMove(PLAYER_O, 2, 0)
+	err = game.MakeMove(PLAYER_X, 0, 2)
 	if err != nil {
 		panic(err)
 	}
