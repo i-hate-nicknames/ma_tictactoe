@@ -4,17 +4,6 @@ import (
 	"fmt"
 )
 
-// Cell state of the board
-type Cell int
-
-// NONE cell is a cell that no player put mark on yet
-// OCCUPIED_X and OCCUPIED_Y values are for cells with X and O respectively
-const (
-	NONE Cell = iota
-	OCCUPIED_X
-	OCCUPIED_O
-)
-
 type BoardState int
 
 const (
@@ -27,48 +16,62 @@ const (
 type Player int
 
 const (
-	PLAYER_X Player = iota
+	NO_PLAYER Player = iota
+	PLAYER_X
 	PLAYER_O
 )
+
+func (p Player) String() string {
+	switch p {
+	case PLAYER_O:
+		return "O"
+	case PLAYER_X:
+		return "X"
+	default:
+	case NO_PLAYER:
+		return "-"
+	}
+	return "" // shut the fuck up
+}
 
 // Board represents tic tac toe game state
 // board is a square grid of cells
 type Board struct {
 	size     int
-	grid     [][]Cell
+	grid     [][]Player
 	nextTurn Player
 }
 
 // MakeBoard creates a board of size rows and size columns
 func MakeBoard(size int) *Board {
-	grid := make([][]Cell, size)
+	grid := make([][]Player, size)
 	for i := 0; i < size; i++ {
-		row := make([]Cell, size)
+		row := make([]Player, size)
 		for j := 0; j < size; j++ {
-			row[j] = NONE
+			row[j] = NO_PLAYER
 		}
 		grid[i] = row
 	}
 	return &Board{size, grid, PLAYER_X}
 }
 
-// SetValue for the board at x, y to the given value
-// return error if the cell already has a value distinct from NONE
+// SetValue for the board at x, y to the given owner
+// return error if the cell already has a owner distinct from NONE
 // or the coordinates are outside of the grid
-func (b *Board) SetValue(value Cell, x, y int) error {
+func (b *Board) SetValue(owner Player, x, y int) error {
 	err := b.validateCoordinates(x, y)
 	if err != nil {
 		return err
 	}
-	if b.grid[y][x] != NONE {
+	if b.grid[y][x] != NO_PLAYER {
 		return fmt.Errorf("%d, %d is already occupied", x, y)
 	}
-	b.grid[y][x] = value
+	b.grid[y][x] = owner
 	return nil
 }
 
 // GetValue returns value of the board at x, y
-func (b *Board) GetValue(x, y int) (Cell, error) {
+func (b *Board) GetValue(x, y int) (Player, error) {
 	err := b.validateCoordinates(x, y)
 	if err != nil {
 		return 0, err
@@ -133,15 +136,15 @@ func (b *Board) getLineState(x, y, dx, dy int, knownState BoardState) BoardState
 // said player
 // Otherwise (the line is a mix of different player cells) it's a tie
 func (b *Board) calcLineState(x, y, dx, dy int) BoardState {
-	spotted := NONE
+	spotted := NO_PLAYER
 	for i := y; i >= 0 && i < b.size; i += dy {
 		for j := x; j >= 0 && j < b.size; j += dx {
 			cell := b.grid[i][j]
-			if cell == NONE {
+			if cell == NO_PLAYER {
 				// if there is an empty cell left, we continue playing
 				return PLAYING
 			}
-			if spotted == NONE {
+			if spotted == NO_PLAYER {
 				// this is the first cell we encounter, remember its value
 				spotted = cell
 			} else if cell != spotted {
@@ -158,9 +161,9 @@ func (b *Board) calcLineState(x, y, dx, dy int) BoardState {
 		}
 	}
 	switch spotted {
-	case OCCUPIED_O:
+	case PLAYER_O:
 		return O_WON
-	case OCCUPIED_X:
+	case PLAYER_X:
 		return X_WON
 	default:
 		// just to make compiler happy, this should never be reached
@@ -172,16 +175,8 @@ func (b *Board) String() string {
 	res := ""
 	for i := 0; i < b.size; i++ {
 		for j := 0; j < b.size; j++ {
-			val, _ := b.GetValue(i, j)
-			switch val {
-			case NONE:
-				res += "-"
-			case OCCUPIED_X:
-				res += "X"
-			case OCCUPIED_O:
-				res += "O"
-			}
-			res += " "
+			player, _ := b.GetValue(i, j)
+			res += player.String() + " "
 		}
 		res += "\n"
 	}
@@ -198,14 +193,7 @@ func (b *Board) String() string {
 	case X_WON:
 		boardStateStr = "Player X wins!"
 	}
-	nextTurnStr := ""
-	res += "Board state: " + boardStateStr + "\n"
-	switch nextTurn {
-	case PLAYER_O:
-		nextTurnStr = "Player O"
-	case PLAYER_X:
-		nextTurnStr = "Player X"
-	}
-	res += "Next turn: " + nextTurnStr
+	res += boardStateStr + "\n"
+	res += "Next turn: " + nextTurn.String()
 	return res
 }
