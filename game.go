@@ -56,10 +56,16 @@ func MakeBoard(size int) *Board {
 	return &Board{size, grid, PLAYER_X, PLAYING}
 }
 
-// SetValue for the board at x, y to the given owner
+// MakeMove for the board at x, y to the given owner
 // return error if the cell already has a owner distinct from NONE
 // or the coordinates are outside of the grid
-func (b *Board) SetValue(owner Player, x, y int) error {
+func (b *Board) MakeMove(player Player, x, y int) error {
+	if player == NO_PLAYER {
+		return fmt.Errorf("Only X and O players can make moves")
+	}
+	if player != b.nextTurn {
+		return fmt.Errorf("Cannot make a move: it's not your turn, it's player %s", b.nextTurn)
+	}
 	err := b.validateCoordinates(x, y)
 	if err != nil {
 		return err
@@ -67,8 +73,18 @@ func (b *Board) SetValue(owner Player, x, y int) error {
 	if b.grid[y][x] != NO_PLAYER {
 		return fmt.Errorf("%d, %d is already occupied", x, y)
 	}
-	b.grid[y][x] = owner
-	b.state, b.nextTurn = b.calcBoardState()
+	if b.state != PLAYING {
+		return fmt.Errorf("Cannot make a move: the game is over")
+	}
+	b.grid[y][x] = player
+	b.state = b.calcBoardState()
+	if b.state != PLAYING {
+		b.nextTurn = NO_PLAYER
+	} else if player == PLAYER_X {
+		b.nextTurn = PLAYER_O
+	} else {
+		b.nextTurn = PLAYER_X
+	}
 	return nil
 }
 
@@ -102,9 +118,7 @@ func (b *Board) validateCoordinates(x, y int) error {
 	return err
 }
 
-// GetBoardState returns state in which current board is, together with the
-// player that should make next turn
-func (b *Board) calcBoardState() (BoardState, Player) {
+func (b *Board) calcBoardState() BoardState {
 	state := TIE
 	for row := 0; row < b.size; row++ {
 		state = b.getLineState(0, row, 1, 0, state)
@@ -116,7 +130,7 @@ func (b *Board) calcBoardState() (BoardState, Player) {
 	state = b.getLineState(0, 0, 1, 1, state)
 	// check secondary diagonal
 	state = b.getLineState(b.size-1, 0, -1, 1, state)
-	return state, b.nextTurn
+	return state
 }
 
 // wrapper around calcLineState that allows passing previously calculated state (in some other line)
@@ -192,8 +206,7 @@ func (b *Board) String() string {
 	}
 	// todo: move to corresponding String methods on the types
 	boardStateStr := ""
-	state, nextTurn := b.calcBoardState()
-	switch state {
+	switch b.state {
 	case TIE:
 		boardStateStr = "TIE"
 	case PLAYING:
@@ -204,6 +217,6 @@ func (b *Board) String() string {
 		boardStateStr = "Player X wins!"
 	}
 	res += boardStateStr + "\n"
-	res += "Next turn: " + nextTurn.String()
+	res += "Next turn: " + b.nextTurn.String()
 	return res
 }
