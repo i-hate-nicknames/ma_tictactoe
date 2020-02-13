@@ -57,7 +57,9 @@ func testGame() {
 
 func runAsServer(port string) {
 	exit := make(chan bool, 1)
-	startServer(port)
+	done := make(chan bool, 1)
+	go startServer(port, done)
+	<-done
 	go startClient("127.0.0.1:" + port)
 	<-exit
 }
