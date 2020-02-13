@@ -12,7 +12,7 @@ type Cell int
 const (
 	NONE Cell = iota
 	OCCUPIED_X
-	OCCUPIED_Y
+	OCCUPIED_O
 )
 
 type BoardState int
@@ -47,7 +47,7 @@ func MakeBoard(size int) *Board {
 		for j := 0; j < size; j++ {
 			row[j] = NONE
 		}
-		grid = append(grid, row)
+		grid[i] = row
 	}
 	return &Board{size, grid, PLAYER_X}
 }
@@ -89,7 +89,9 @@ func (b *Board) validateCoordinates(x, y int) error {
 	return err
 }
 
-func (b *Board) GetBoardState() BoardState {
+// GetBoardState returns state in which current board is, together with the
+// player that should make next turn
+func (b *Board) GetBoardState() (BoardState, Player) {
 	state := TIE
 	for row := 0; row < b.size; row++ {
 		state = b.getLineState(0, row, 1, 0, state)
@@ -101,7 +103,7 @@ func (b *Board) GetBoardState() BoardState {
 	state = b.getLineState(0, 0, 1, 1, state)
 	// check secondary diagonal
 	state = b.getLineState(b.size-1, 0, -1, 1, state)
-	return state
+	return state, b.nextTurn
 }
 
 // wrapper around calcLineState that allows passing previously calculated state (in some other line)
@@ -138,10 +140,16 @@ func (b *Board) calcLineState(x, y, dx, dy int) BoardState {
 				// in this line, so it's a tie
 				return TIE
 			}
+			if dx == 0 {
+				break
+			}
+		}
+		if dy == 0 {
+			break
 		}
 	}
 	switch spotted {
-	case OCCUPIED_Y:
+	case OCCUPIED_O:
 		return O_WON
 	case OCCUPIED_X:
 		return X_WON
@@ -149,4 +157,46 @@ func (b *Board) calcLineState(x, y, dx, dy int) BoardState {
 		// just to make compiler happy, this should never be reached
 		return TIE
 	}
+}
+
+func (b *Board) String() string {
+	res := ""
+	for i := 0; i < b.size; i++ {
+		for j := 0; j < b.size; j++ {
+			val, _ := b.GetValue(i, j)
+			switch val {
+			case NONE:
+				res += "-"
+			case OCCUPIED_X:
+				res += "X"
+			case OCCUPIED_O:
+				res += "O"
+			}
+			res += " "
+		}
+		res += "\n"
+	}
+	// todo: move to corresponding String methods on the types
+	boardStateStr := ""
+	state, nextTurn := b.GetBoardState()
+	switch state {
+	case TIE:
+		boardStateStr = "TIE"
+	case PLAYING:
+		boardStateStr = "TIE"
+	case O_WON:
+		boardStateStr = "Player O wins!"
+	case X_WON:
+		boardStateStr = "Player X wins!"
+	}
+	nextTurnStr := ""
+	res += "Board state: " + boardStateStr + "\n"
+	switch nextTurn {
+	case PLAYER_O:
+		nextTurnStr = "Player O"
+	case PLAYER_X:
+		nextTurnStr = "Player X"
+	}
+	res += "Next turn: " + nextTurnStr
+	return res
 }
