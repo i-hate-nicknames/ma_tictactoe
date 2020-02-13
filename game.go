@@ -40,6 +40,7 @@ type Board struct {
 	size     int
 	grid     [][]Player
 	nextTurn Player
+	state    BoardState
 }
 
 // MakeBoard creates a board of size rows and size columns
@@ -52,7 +53,7 @@ func MakeBoard(size int) *Board {
 		}
 		grid[i] = row
 	}
-	return &Board{size, grid, PLAYER_X}
+	return &Board{size, grid, PLAYER_X, PLAYING}
 }
 
 // SetValue for the board at x, y to the given owner
@@ -67,6 +68,7 @@ func (b *Board) SetValue(owner Player, x, y int) error {
 		return fmt.Errorf("%d, %d is already occupied", x, y)
 	}
 	b.grid[y][x] = owner
+	b.state, b.nextTurn = b.calcBoardState()
 	return nil
 }
 
@@ -77,6 +79,14 @@ func (b *Board) GetValue(x, y int) (Player, error) {
 		return 0, err
 	}
 	return b.grid[y][x], nil
+}
+
+func (b *Board) GetState() BoardState {
+	return b.state
+}
+
+func (b *Board) GetNextTurn() Player {
+	return b.nextTurn
 }
 
 // return nil if x, y coordinates are valid for this board
@@ -94,7 +104,7 @@ func (b *Board) validateCoordinates(x, y int) error {
 
 // GetBoardState returns state in which current board is, together with the
 // player that should make next turn
-func (b *Board) GetBoardState() (BoardState, Player) {
+func (b *Board) calcBoardState() (BoardState, Player) {
 	state := TIE
 	for row := 0; row < b.size; row++ {
 		state = b.getLineState(0, row, 1, 0, state)
@@ -182,7 +192,7 @@ func (b *Board) String() string {
 	}
 	// todo: move to corresponding String methods on the types
 	boardStateStr := ""
-	state, nextTurn := b.GetBoardState()
+	state, nextTurn := b.calcBoardState()
 	switch state {
 	case TIE:
 		boardStateStr = "TIE"
