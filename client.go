@@ -23,20 +23,23 @@ func startClient(addr string) {
 	sockReader := bufio.NewReader(conn)
 	inputReader := bufio.NewReader(os.Stdin)
 	for {
-		input, err := readInput(inputReader)
-		input = strings.Trim(input, "\n")
+		userInput, err := readInput(inputReader)
+		userInput = strings.Trim(userInput, "\n")
 		if err == io.EOF {
 			fmt.Println("Exiting")
 			os.Exit(1)
 		}
 		if err != nil {
-			fmt.Printf("Error reading input: %s\n", err)
+			fmt.Printf("Error reading userInput: %s\n", err)
 			os.Exit(1)
 		}
-		fmt.Println("Sending " + input)
-		fmt.Fprintln(conn, input)
+		out, err := MarshalMessage(QuestionMessage{userInput})
+		if err != nil {
+			fmt.Printf("Error marshaling user input: %s\n", err)
+			continue
+		}
+		fmt.Fprintln(conn, out)
 		reply, err := sockReader.ReadString('\n')
-		reply = strings.Trim(reply, "\n")
 		if err == io.EOF {
 			fmt.Println("Server closed the connection")
 			os.Exit(1)
@@ -45,7 +48,13 @@ func startClient(addr string) {
 			fmt.Printf("Error reading reply from server: %s\n", err)
 			os.Exit(1)
 		}
-		fmt.Println("Server replied: " + reply)
+		reply = strings.Trim(reply, "\n")
+		message, err := UnmarshalMessage(reply)
+		if err != nil {
+			fmt.Printf("Error unmarshaling server message: %s\n", err)
+		} else {
+			handleServerMessage(message)
+		}
 	}
 
 }
@@ -53,4 +62,16 @@ func startClient(addr string) {
 func readInput(reader *bufio.Reader) (string, error) {
 	input, err := reader.ReadString('\n')
 	return input, err
+}
+
+func handleServerMessage(message interface{}) {
+	switch message := message.(type) {
+	case QuestionMessage:
+		fmt.Println("Server asks us a question, that's just moronic!")
+		fmt.Printf("The question was: %s\n", message.Text)
+	case AnswerMessage:
+		fmt.Printf("Server asnwered: %s\nAnd gave us some advice: %s\n", message.Text, message.Advice)
+	default:
+		log.Printf("Unsupported message type: %T", message)
+	}
 }

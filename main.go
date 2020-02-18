@@ -56,6 +56,8 @@ func testGame() {
 }
 
 func runAsServer(port string) {
+	// todo wait on signals
+	// todo abstract out
 	exit := make(chan bool, 1)
 	done := make(chan bool, 1)
 	go startServer(port, done)

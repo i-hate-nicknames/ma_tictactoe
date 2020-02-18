@@ -16,17 +16,17 @@ type QuestionMessage struct {
 	Text string
 }
 
-type AnserMessage struct {
+type AnswerMessage struct {
 	Text   string
 	Advice string
 }
 
-func Marshal(message interface{}) (string, error) {
+func MarshalMessage(message interface{}) (string, error) {
 	var msgType string
-	switch msg := message.(type) {
+	switch message.(type) {
 	case QuestionMessage:
 		msgType = MSG_QUESTION
-	case AnserMessage:
+	case AnswerMessage:
 		msgType = MSG_ANSWER
 	default:
 		return "", fmt.Errorf("%v of type %T is not a valid message to marshal", message, message)
@@ -38,7 +38,7 @@ func Marshal(message interface{}) (string, error) {
 	return msgType + SEPARATOR + string(payload), nil
 }
 
-func Unmarshal(marshalled string) (interface{}, error) {
+func UnmarshalMessage(marshalled string) (interface{}, error) {
 	parts := strings.Split(marshalled, SEPARATOR)
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("Unmarshal: malformed message: %s", marshalled)
@@ -53,7 +53,7 @@ func Unmarshal(marshalled string) (interface{}, error) {
 		}
 		return message, nil
 	case MSG_ANSWER:
-		var message AnserMessage
+		var message AnswerMessage
 		err := json.Unmarshal(payload, &message)
 		if err != nil {
 			return nil, err
