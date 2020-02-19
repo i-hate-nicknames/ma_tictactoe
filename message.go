@@ -7,10 +7,23 @@ import (
 )
 
 const (
-	MSG_QUESTION = "QUE"
-	MSG_ANSWER   = "ANS"
-	SEPARATOR    = "|"
+	MSG_BOARD           = "board"
+	MSG_WAITING_CONNECT = "waitingConnect"
+	MSG_MOVE            = "move"
+	MSG_QUESTION        = "QUE"
+	MSG_ANSWER          = "ANS"
+	SEPARATOR           = "|"
 )
+
+type WaitingMessage struct{}
+
+type BoardMessage struct {
+	board *Board
+}
+
+type MoveMessage struct {
+	x, y int
+}
 
 type QuestionMessage struct {
 	Text string
@@ -27,6 +40,12 @@ func getMessageType(message interface{}) (string, error) {
 		return MSG_QUESTION, nil
 	case AnswerMessage:
 		return MSG_ANSWER, nil
+	case WaitingMessage:
+		return MSG_WAITING_CONNECT, nil
+	case MoveMessage:
+		return MSG_MOVE, nil
+	case BoardMessage:
+		return MSG_BOARD, nil
 	default:
 		return "", fmt.Errorf("%v of type %T is not a valid message to marshal", message, message)
 	}
@@ -62,6 +81,27 @@ func UnmarshalMessage(marshalled string) (interface{}, error) {
 		return message, nil
 	case MSG_ANSWER:
 		var message AnswerMessage
+		err := json.Unmarshal(payload, &message)
+		if err != nil {
+			return nil, err
+		}
+		return message, nil
+	case MSG_BOARD:
+		var message BoardMessage
+		err := json.Unmarshal(payload, &message)
+		if err != nil {
+			return nil, err
+		}
+		return message, nil
+	case MSG_MOVE:
+		var message MoveMessage
+		err := json.Unmarshal(payload, &message)
+		if err != nil {
+			return nil, err
+		}
+		return message, nil
+	case MSG_WAITING_CONNECT:
+		var message WaitingMessage
 		err := json.Unmarshal(payload, &message)
 		if err != nil {
 			return nil, err
