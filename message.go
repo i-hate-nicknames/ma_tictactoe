@@ -21,23 +21,31 @@ type AnswerMessage struct {
 	Advice string
 }
 
-func MarshalMessage(message interface{}) (string, error) {
-	var msgType string
+func getMessageType(message interface{}) (string, error) {
 	switch message.(type) {
 	case QuestionMessage:
-		msgType = MSG_QUESTION
+		return MSG_QUESTION, nil
 	case AnswerMessage:
-		msgType = MSG_ANSWER
+		return MSG_ANSWER, nil
 	default:
 		return "", fmt.Errorf("%v of type %T is not a valid message to marshal", message, message)
 	}
+}
+
+// MarshalMessage to a string, ready to be sent over a wire
+func MarshalMessage(message interface{}) (string, error) {
+	msgType, err := getMessageType(message)
+	if err != nil {
+		return "", err
+	}
 	payload, err := json.Marshal(message)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	return msgType + SEPARATOR + string(payload), nil
 }
 
+// UnmarshalMessage produces message of a correct type from a string
 func UnmarshalMessage(marshalled string) (interface{}, error) {
 	parts := strings.Split(marshalled, SEPARATOR)
 	if len(parts) != 2 {
