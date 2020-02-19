@@ -9,47 +9,80 @@ import (
 	"strings"
 )
 
+type Server struct {
+	board        *Board
+	xConn, yConn net.Conn
+	serverSock   net.Listener
+	numClients   int
+}
+
+func (server *Server) run() {
+	for {
+		// stop accepting any new clients when there are two
+		if server.numClients == 2 {
+			return
+		}
+		conn, err := server.serverSock.Accept()
+		if err != nil {
+			log.Printf("Failed to handle a client: %s\n", err)
+			continue
+		}
+		if server.numClients == 0 {
+			server.xConn = conn
+			go server.handleClient(PLAYER_X, conn)
+		} else {
+			server.yConn = conn
+			go server.handleClient(PLAYER_O, conn)
+		}
+		server.numClients++
+	}
+}
+
 func startServer(port string, done chan<- bool) {
 	serverSock, err := net.Listen("tcp4", ":"+port)
 	if err != nil {
 		log.Fatalf("Failed to start a server: %s\n", err)
 	}
 	done <- true
-	for {
-		conn, err := serverSock.Accept()
-		if err != nil {
-			log.Printf("Failed to handle a client: %s\n", err)
-			continue
-		}
-		go handleClient(conn)
-	}
+	board := MakeBoard(3)
+	server := &Server{board: board, serverSock: serverSock}
+	server.run()
+
 }
 
-// todo: implement server struct that will hold connection instead of passing it around
 // handle a client: reply to every message with modified client message
-func handleClient(conn net.Conn) {
+func (server *Server) handleClient(player Player, conn net.Conn) {
 	reader := bufio.NewReader(conn)
+	defer conn.Close()
 	for {
-		data, err := reader.ReadString('\n')
-		if err == io.EOF {
-			log.Printf("Client disconnected")
+		message, err := readMessage(reader)
+		if err != nil {
+			log.Printf("Error reading client message: %s\n", err)
 			return
 		}
-		if err != nil {
-			log.Printf("Error reading from client %s\n", err)
-			return
-		}
-		data = strings.Trim(data, "\n")
-		message, err := UnmarshalMessage(data)
-		if err != nil {
-			log.Printf("Error when parsing client message: %s", err)
-		} else {
-			handleMessage(conn, message)
-		}
+		server.handleMessage(conn, message)
 	}
 }
 
-func handleMessage(conn net.Conn, message interface{}) {
+// read one client message data from the given reader, parse it
+// and return as a message struct
+func readMessage(reader *bufio.Reader) (interface{}, error) {
+	data, err := reader.ReadString('\n')
+	if err == io.EOF {
+		return nil, fmt.Errorf("client disconnected")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error reading from client %s", err)
+	}
+	data = strings.Trim(data, "\n")
+	message, err := UnmarshalMessage(data)
+	if err != nil {
+		return nil, fmt.Errorf("error when parsing client message: %s", err)
+	}
+	return message, nil
+}
+
+func (server *Server) handleMessage(conn net.Conn, message interface{}) {
 	var data string
 	var err error
 	switch message := message.(type) {
