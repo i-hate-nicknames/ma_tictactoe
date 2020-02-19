@@ -10,6 +10,8 @@ const (
 	MSG_BOARD           = "board"
 	MSG_WAITING_CONNECT = "waitingConnect"
 	MSG_MOVE            = "move"
+	MSG_ERROR           = "error"
+	MSG_HELLO           = "hello"
 	SEPARATOR           = "|"
 )
 
@@ -23,6 +25,15 @@ type MoveMessage struct {
 	X, Y int
 }
 
+type ErrorMessage struct {
+	Text string
+}
+
+type HelloMessage struct {
+	Text           string
+	AssignedPlayer Player
+}
+
 func getMessageType(message interface{}) (string, error) {
 	switch message.(type) {
 	case WaitingMessage:
@@ -31,6 +42,10 @@ func getMessageType(message interface{}) (string, error) {
 		return MSG_MOVE, nil
 	case BoardMessage:
 		return MSG_BOARD, nil
+	case ErrorMessage:
+		return MSG_ERROR, nil
+	case HelloMessage:
+		return MSG_HELLO, nil
 	default:
 		return "", fmt.Errorf("%v of type %T is not a valid message to marshal", message, message)
 	}
@@ -73,6 +88,20 @@ func UnmarshalMessage(marshalled string) (interface{}, error) {
 		return message, nil
 	case MSG_WAITING_CONNECT:
 		var message WaitingMessage
+		err := json.Unmarshal(payload, &message)
+		if err != nil {
+			return nil, err
+		}
+		return message, nil
+	case MSG_ERROR:
+		var message ErrorMessage
+		err := json.Unmarshal(payload, &message)
+		if err != nil {
+			return nil, err
+		}
+		return message, nil
+	case MSG_HELLO:
+		var message HelloMessage
 		err := json.Unmarshal(payload, &message)
 		if err != nil {
 			return nil, err

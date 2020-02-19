@@ -67,6 +67,10 @@ func handleServerMessage(message interface{}) {
 		fmt.Println("Waiting for another player to connect")
 	case BoardMessage:
 		fmt.Printf("Server sent us a board!\n%s\n", message.Board)
+	case ErrorMessage:
+		fmt.Printf("Error: %s\n", message.Text)
+	case HelloMessage:
+		fmt.Printf("%s\nYour player is %s\n", message.Text, message.AssignedPlayer)
 	default:
 		log.Printf("Unsupported message type: %T", message)
 	}

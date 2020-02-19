@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"strings"
+	"time"
 )
 
 type Server struct {
@@ -14,12 +15,13 @@ type Server struct {
 	xConn, yConn net.Conn
 	serverSock   net.Listener
 	numClients   int
+	gameStarted  bool
 }
 
 func (server *Server) run() {
 	for {
-		// stop accepting any new clients when there are two
-		if server.numClients == 2 {
+		// stop accepting any new clients when the game has started
+		if server.gameStarted {
 			return
 		}
 		conn, err := server.serverSock.Accept()
@@ -35,6 +37,9 @@ func (server *Server) run() {
 			go server.handleClient(PLAYER_O, conn)
 		}
 		server.numClients++
+		if server.numClients == 2 {
+			server.gameStarted = true
+		}
 	}
 }
 
@@ -54,10 +59,16 @@ func startServer(port string, done chan<- bool) {
 func (server *Server) handleClient(player Player, conn net.Conn) {
 	reader := bufio.NewReader(conn)
 	defer conn.Close()
-
-	// send the board initially
-	data, _ := MarshalMessage(BoardMessage{server.board})
-	fmt.Fprintln(conn, data)
+	sendMessage(conn, HelloMessage{"Welcome to this tic tac toe server!", player})
+	if server.gameStarted {
+		sendMessage(conn, BoardMessage{server.board})
+	} else {
+		sendMessage(conn, WaitingMessage{})
+		for !server.gameStarted {
+			time.Sleep(300 * time.Millisecond)
+		}
+		sendMessage(conn, BoardMessage{server.board})
+	}
 	for {
 		message, err := readMessage(reader)
 		if err != nil {
@@ -88,16 +99,24 @@ func readMessage(reader *bufio.Reader) (interface{}, error) {
 
 func (server *Server) handleMessage(conn net.Conn, message interface{}) {
 	var data string
-	var err error
+	if !server.gameStarted {
+		// ignore client messages until the game has started
+		return
+	}
 	switch message := message.(type) {
 	case MoveMessage:
 		// todo actually perform the move
-		data, err = MarshalMessage(BoardMessage{server.board})
+		sendMessage(conn, BoardMessage{server.board})
 	default:
 		log.Printf("Unsupported message type: %T", message)
 	}
+	fmt.Fprintln(conn, data)
+}
+
+func sendMessage(conn net.Conn, message interface{}) {
+	data, err := MarshalMessage(message)
 	if err != nil {
-		log.Printf("Error when marshaling message: %s", err)
+		log.Printf("Error marshaling message: %s\n", err)
 	}
 	fmt.Fprintln(conn, data)
 }
