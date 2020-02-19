@@ -55,7 +55,7 @@ func (server *Server) handleClient(player Player, conn net.Conn) {
 	reader := bufio.NewReader(conn)
 	defer conn.Close()
 
-	// sent the board initially
+	// send the board initially
 	data, _ := MarshalMessage(BoardMessage{server.board})
 	fmt.Fprintln(conn, data)
 	for {

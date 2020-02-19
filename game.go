@@ -37,10 +37,10 @@ func (p Player) String() string {
 // Board represents tic tac toe game state
 // board is a square grid of cells
 type Board struct {
-	size     int
-	grid     [][]Player
-	nextTurn Player
-	state    BoardState
+	Size     int
+	Grid     [][]Player
+	NextTurn Player
+	State    BoardState
 }
 
 // MakeBoard creates a board of size rows and size columns
@@ -63,27 +63,27 @@ func (b *Board) MakeMove(player Player, x, y int) error {
 	if player == NO_PLAYER {
 		return fmt.Errorf("Only X and O players can make moves")
 	}
-	if player != b.nextTurn {
-		return fmt.Errorf("Cannot make a move: it's not your turn, it's player %s", b.nextTurn)
+	if player != b.NextTurn {
+		return fmt.Errorf("Cannot make a move: it's not your turn, it's player %s", b.NextTurn)
 	}
 	err := b.validateCoordinates(x, y)
 	if err != nil {
 		return err
 	}
-	if b.grid[y][x] != NO_PLAYER {
+	if b.Grid[y][x] != NO_PLAYER {
 		return fmt.Errorf("%d, %d is already occupied", x, y)
 	}
-	if b.state != PLAYING {
+	if b.State != PLAYING {
 		return fmt.Errorf("Cannot make a move: the game is over")
 	}
-	b.grid[y][x] = player
-	b.state = b.calcBoardState()
-	if b.state != PLAYING {
-		b.nextTurn = NO_PLAYER
+	b.Grid[y][x] = player
+	b.State = b.calcBoardState()
+	if b.State != PLAYING {
+		b.NextTurn = NO_PLAYER
 	} else if player == PLAYER_X {
-		b.nextTurn = PLAYER_O
+		b.NextTurn = PLAYER_O
 	} else {
-		b.nextTurn = PLAYER_X
+		b.NextTurn = PLAYER_X
 	}
 	return nil
 }
@@ -94,42 +94,42 @@ func (b *Board) GetValue(x, y int) (Player, error) {
 	if err != nil {
 		return 0, err
 	}
-	return b.grid[y][x], nil
+	return b.Grid[y][x], nil
 }
 
 func (b *Board) GetState() BoardState {
-	return b.state
+	return b.State
 }
 
 func (b *Board) GetNextTurn() Player {
-	return b.nextTurn
+	return b.NextTurn
 }
 
 // return nil if x, y coordinates are valid for this board
 // otherwise return error
 func (b *Board) validateCoordinates(x, y int) error {
 	var err error
-	if x < 0 || x >= b.size {
-		err = fmt.Errorf("X coordinate must be within [0, %d]", b.size-1)
+	if x < 0 || x >= b.Size {
+		err = fmt.Errorf("X coordinate must be within [0, %d]", b.Size-1)
 	}
-	if y < 0 || y >= b.size {
-		err = fmt.Errorf("Y coordinate must be within [0, %d], %s", b.size-1, err)
+	if y < 0 || y >= b.Size {
+		err = fmt.Errorf("Y coordinate must be within [0, %d], %s", b.Size-1, err)
 	}
 	return err
 }
 
 func (b *Board) calcBoardState() BoardState {
 	state := TIE
-	for row := 0; row < b.size; row++ {
+	for row := 0; row < b.Size; row++ {
 		state = b.getLineState(0, row, 1, 0, state)
 	}
-	for col := 0; col < b.size; col++ {
+	for col := 0; col < b.Size; col++ {
 		state = b.getLineState(col, 0, 0, 1, state)
 	}
 	// check main diagonal
 	state = b.getLineState(0, 0, 1, 1, state)
 	// check secondary diagonal
-	state = b.getLineState(b.size-1, 0, -1, 1, state)
+	state = b.getLineState(b.Size-1, 0, -1, 1, state)
 	return state
 }
 
@@ -161,9 +161,9 @@ func (b *Board) getLineState(x, y, dx, dy int, knownState BoardState) BoardState
 // Otherwise (the line is a mix of different player cells) it's a tie
 func (b *Board) calcLineState(x, y, dx, dy int) BoardState {
 	spotted := NO_PLAYER
-	for i := y; i >= 0 && i < b.size; i += dy {
-		for j := x; j >= 0 && j < b.size; j += dx {
-			cell := b.grid[i][j]
+	for i := y; i >= 0 && i < b.Size; i += dy {
+		for j := x; j >= 0 && j < b.Size; j += dx {
+			cell := b.Grid[i][j]
 			if cell == NO_PLAYER {
 				// if there is an empty cell left, we continue playing
 				return PLAYING
@@ -197,8 +197,8 @@ func (b *Board) calcLineState(x, y, dx, dy int) BoardState {
 
 func (b *Board) String() string {
 	res := ""
-	for i := 0; i < b.size; i++ {
-		for j := 0; j < b.size; j++ {
+	for i := 0; i < b.Size; i++ {
+		for j := 0; j < b.Size; j++ {
 			player, _ := b.GetValue(i, j)
 			res += player.String() + " "
 		}
@@ -206,7 +206,7 @@ func (b *Board) String() string {
 	}
 	// todo: move to corresponding String methods on the types
 	boardStateStr := ""
-	switch b.state {
+	switch b.State {
 	case TIE:
 		boardStateStr = "TIE"
 	case PLAYING:
@@ -217,6 +217,6 @@ func (b *Board) String() string {
 		boardStateStr = "Player X wins!"
 	}
 	res += boardStateStr + "\n"
-	res += "Next turn: " + b.nextTurn.String()
+	res += "Next turn: " + b.NextTurn.String()
 	return res
 }

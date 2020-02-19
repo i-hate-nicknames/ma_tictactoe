@@ -16,11 +16,11 @@ const (
 type WaitingMessage struct{}
 
 type BoardMessage struct {
-	board *Board
+	Board *Board
 }
 
 type MoveMessage struct {
-	x, y int
+	X, Y int
 }
 
 func getMessageType(message interface{}) (string, error) {
