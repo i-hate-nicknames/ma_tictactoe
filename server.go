@@ -54,6 +54,10 @@ func startServer(port string, done chan<- bool) {
 func (server *Server) handleClient(player Player, conn net.Conn) {
 	reader := bufio.NewReader(conn)
 	defer conn.Close()
+
+	// sent the board initially
+	data, _ := MarshalMessage(BoardMessage{server.board})
+	fmt.Fprintln(conn, data)
 	for {
 		message, err := readMessage(reader)
 		if err != nil {
@@ -86,12 +90,9 @@ func (server *Server) handleMessage(conn net.Conn, message interface{}) {
 	var data string
 	var err error
 	switch message := message.(type) {
-	case QuestionMessage:
-		answer := AnswerMessage{"I have no idea about " + message.Text, "have a nice life"}
-		data, err = MarshalMessage(answer)
-	case AnswerMessage:
-		answer := AnswerMessage{"nothing", "you are not allowed to answer questions son"}
-		data, err = MarshalMessage(answer)
+	case MoveMessage:
+		// todo actually perform the move
+		data, err = MarshalMessage(BoardMessage{server.board})
 	default:
 		log.Printf("Unsupported message type: %T", message)
 	}

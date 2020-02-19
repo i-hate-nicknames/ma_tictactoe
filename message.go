@@ -10,8 +10,6 @@ const (
 	MSG_BOARD           = "board"
 	MSG_WAITING_CONNECT = "waitingConnect"
 	MSG_MOVE            = "move"
-	MSG_QUESTION        = "QUE"
-	MSG_ANSWER          = "ANS"
 	SEPARATOR           = "|"
 )
 
@@ -25,21 +23,8 @@ type MoveMessage struct {
 	x, y int
 }
 
-type QuestionMessage struct {
-	Text string
-}
-
-type AnswerMessage struct {
-	Text   string
-	Advice string
-}
-
 func getMessageType(message interface{}) (string, error) {
 	switch message.(type) {
-	case QuestionMessage:
-		return MSG_QUESTION, nil
-	case AnswerMessage:
-		return MSG_ANSWER, nil
 	case WaitingMessage:
 		return MSG_WAITING_CONNECT, nil
 	case MoveMessage:
@@ -72,20 +57,6 @@ func UnmarshalMessage(marshalled string) (interface{}, error) {
 	}
 	msgType, payload := parts[0], []byte(parts[1])
 	switch msgType {
-	case MSG_QUESTION:
-		var message QuestionMessage
-		err := json.Unmarshal(payload, &message)
-		if err != nil {
-			return nil, err
-		}
-		return message, nil
-	case MSG_ANSWER:
-		var message AnswerMessage
-		err := json.Unmarshal(payload, &message)
-		if err != nil {
-			return nil, err
-		}
-		return message, nil
 	case MSG_BOARD:
 		var message BoardMessage
 		err := json.Unmarshal(payload, &message)

@@ -21,56 +21,52 @@ func startClient(addr string) {
 		return
 	}
 	sockReader := bufio.NewReader(conn)
-	inputReader := bufio.NewReader(os.Stdin)
 	for {
-		userInput, err := readInput(inputReader)
-		userInput = strings.Trim(userInput, "\n")
-		if err == io.EOF {
-			fmt.Println("Exiting")
-			os.Exit(1)
-		}
-		if err != nil {
-			fmt.Printf("Error reading userInput: %s\n", err)
-			os.Exit(1)
-		}
-		out, err := MarshalMessage(QuestionMessage{userInput})
-		if err != nil {
-			fmt.Printf("Error marshaling user input: %s\n", err)
-			continue
-		}
-		fmt.Fprintln(conn, out)
-		reply, err := sockReader.ReadString('\n')
-		if err == io.EOF {
-			fmt.Println("Server closed the connection")
-			os.Exit(1)
-		}
-		if err != nil {
-			fmt.Printf("Error reading reply from server: %s\n", err)
-			os.Exit(1)
-		}
-		reply = strings.Trim(reply, "\n")
-		message, err := UnmarshalMessage(reply)
-		if err != nil {
-			fmt.Printf("Error unmarshaling server message: %s\n", err)
-		} else {
-			handleServerMessage(message)
-		}
+		message := readServerMessage(sockReader)
+		handleServerMessage(message)
 	}
-
 }
 
-func readInput(reader *bufio.Reader) (string, error) {
+func readInput(reader *bufio.Reader) string {
 	input, err := reader.ReadString('\n')
-	return input, err
+	if err == io.EOF {
+		fmt.Println("Exiting")
+		os.Exit(1)
+	}
+	if err != nil {
+		fmt.Printf("Error reading userInput: %s\n", err)
+		os.Exit(1)
+	}
+	return strings.Trim(input, "\n")
 }
 
+// todo: move to client package and rename to readMessage
+func readServerMessage(reader *bufio.Reader) interface{} {
+	serverData, err := reader.ReadString('\n')
+	if err == io.EOF {
+		fmt.Println("Server closed the connection")
+		os.Exit(1)
+	}
+	if err != nil {
+		fmt.Printf("Error reading reply from server: %s\n", err)
+		os.Exit(1)
+	}
+	serverData = strings.Trim(serverData, "\n")
+	message, err := UnmarshalMessage(serverData)
+	if err != nil {
+		fmt.Printf("Error unmarshaling server message: %s\n", err)
+		os.Exit(1)
+	}
+	return message
+}
+
+// todo: move to client package and rename to handleMessage
 func handleServerMessage(message interface{}) {
 	switch message := message.(type) {
-	case QuestionMessage:
-		fmt.Println("Server asks us a question, that's just moronic!")
-		fmt.Printf("The question was: %s\n", message.Text)
-	case AnswerMessage:
-		fmt.Printf("Server asnwered: %s\nAnd gave us some advice: %s\n", message.Text, message.Advice)
+	case WaitingMessage:
+		fmt.Println("Waiting for another player to connect")
+	case BoardMessage:
+		fmt.Printf("Server sent us a board!\n%s\n", message.board)
 	default:
 		log.Printf("Unsupported message type: %T", message)
 	}
