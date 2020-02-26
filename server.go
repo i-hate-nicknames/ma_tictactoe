@@ -14,10 +14,16 @@ import (
 type Server struct {
 	board        *Board
 	gameLock     sync.Mutex
-	xConn, yConn net.Conn
+	xConn, yConn *ConnectedPlayer
 	serverSock   net.Listener
 	numClients   int
 	gameStarted  bool
+}
+
+type ConnectedPlayer struct {
+	player       Player
+	conn         net.Conn
+	stateUpdates chan bool
 }
 
 func (server *Server) run() {
@@ -31,13 +37,17 @@ func (server *Server) run() {
 			log.Printf("Failed to handle a client: %s\n", err)
 			continue
 		}
+		stateUpdates := make(chan bool)
 		if server.numClients == 0 {
-			server.xConn = conn
-			go server.handleClient(PLAYER_X, conn)
+			connPlayer := &ConnectedPlayer{player: PLAYER_X, conn: conn, stateUpdates: stateUpdates}
+			server.xConn = connPlayer
+			go server.handleClient(connPlayer)
 		} else {
-			server.yConn = conn
-			go server.handleClient(PLAYER_O, conn)
+			connPlayer := &ConnectedPlayer{player: PLAYER_O, conn: conn, stateUpdates: stateUpdates}
+			server.yConn = connPlayer
+			go server.handleClient(connPlayer)
 		}
+
 		server.numClients++
 		if server.numClients == 2 {
 			server.gameStarted = true
@@ -58,18 +68,18 @@ func startServer(port string, done chan<- bool) {
 }
 
 // handle a client: reply to every message with modified client message
-func (server *Server) handleClient(player Player, conn net.Conn) {
-	reader := bufio.NewReader(conn)
-	defer conn.Close()
-	sendMessage(conn, HelloMessage{"Welcome to this tic tac toe server!", player})
+func (server *Server) handleClient(connPlayer *ConnectedPlayer) {
+	reader := bufio.NewReader(connPlayer.conn)
+	defer connPlayer.conn.Close()
+	sendMessage(connPlayer, HelloMessage{"Welcome to this tic tac toe server!", connPlayer.player})
 	if server.gameStarted {
-		sendMessage(conn, BoardMessage{server.board})
+		sendMessage(connPlayer, BoardMessage{server.board})
 	} else {
-		sendMessage(conn, WaitingMessage{})
+		sendMessage(connPlayer, WaitingMessage{})
 		for !server.gameStarted {
 			time.Sleep(300 * time.Millisecond)
 		}
-		sendMessage(conn, BoardMessage{server.board})
+		sendMessage(connPlayer, BoardMessage{server.board})
 	}
 	for {
 		message, err := readMessage(reader)
@@ -77,7 +87,7 @@ func (server *Server) handleClient(player Player, conn net.Conn) {
 			log.Printf("Error reading client message: %s\n", err)
 			return
 		}
-		server.handleMessage(player, conn, message)
+		server.handleMessage(connPlayer, message)
 	}
 }
 
@@ -99,7 +109,7 @@ func readMessage(reader *bufio.Reader) (interface{}, error) {
 	return message, nil
 }
 
-func (server *Server) handleMessage(player Player, conn net.Conn, message interface{}) {
+func (server *Server) handleMessage(connPlayer *ConnectedPlayer, message interface{}) {
 	if !server.gameStarted {
 		// ignore client messages until the game has started
 		return
@@ -107,12 +117,12 @@ func (server *Server) handleMessage(player Player, conn net.Conn, message interf
 	switch message := message.(type) {
 	case MoveMessage:
 		server.gameLock.Lock()
-		err := server.board.MakeMove(player, message.X, message.Y)
+		err := server.board.MakeMove(connPlayer.player, message.X, message.Y)
 		server.gameLock.Unlock()
 		if err != nil {
-			sendMessage(conn, ErrorMessage{err.Error()})
+			sendMessage(connPlayer, ErrorMessage{err.Error()})
 		} else {
-			sendMessage(conn, BoardMessage{server.board})
+			sendMessage(connPlayer, BoardMessage{server.board})
 		}
 	default:
 		log.Printf("Unsupported message type: %T", message)
@@ -120,11 +130,11 @@ func (server *Server) handleMessage(player Player, conn net.Conn, message interf
 }
 
 // todo check if this is a blocking call
-func sendMessage(conn net.Conn, message interface{}) {
+func sendMessage(connPlayer *ConnectedPlayer, message interface{}) {
 	data, err := MarshalMessage(message)
 	if err != nil {
 		log.Printf("Error marshaling message: %s\n", err)
 		return
 	}
-	fmt.Fprintln(conn, data)
+	fmt.Fprintln(connPlayer.conn, data)
 }
