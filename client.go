@@ -10,6 +10,12 @@ import (
 	"strings"
 )
 
+type Client struct {
+	conn       net.Conn
+	connReader *bufio.Reader
+	player     Player
+}
+
 // connect to the server, send string, receive a single response
 // and print it
 func startClient(addr string) {
@@ -21,15 +27,16 @@ func startClient(addr string) {
 		return
 	}
 	sockReader := bufio.NewReader(conn)
+	client := &Client{conn: conn, connReader: sockReader, player: NO_PLAYER}
 	for {
-		message := readServerMessage(sockReader)
-		handleServerMessage(message, conn)
+		message := client.readMessage()
+		client.handleMessage(message)
 	}
 }
 
-// todo: move to client package and rename to readMessage
-func readServerMessage(reader *bufio.Reader) interface{} {
-	serverData, err := reader.ReadString('\n')
+func (client *Client) readMessage() interface{} {
+	fmt.Println("Reading server message tbh")
+	serverData, err := client.connReader.ReadString('\n')
 	if err == io.EOF {
 		fmt.Println("Server closed the connection")
 		os.Exit(1)
@@ -44,11 +51,11 @@ func readServerMessage(reader *bufio.Reader) interface{} {
 		fmt.Printf("Error unmarshaling server message: %s\n", err)
 		os.Exit(1)
 	}
+	fmt.Printf("GOT MESSAGE FROM ZERVER :DDDD %T %v\n", message, message)
 	return message
 }
 
-// todo: move to client package and rename to handleMessage
-func handleServerMessage(message interface{}, conn net.Conn) {
+func (client *Client) handleMessage(message interface{}) {
 	switch message := message.(type) {
 	case WaitingMessage:
 		fmt.Println("Waiting for another player to connect")
@@ -56,17 +63,22 @@ func handleServerMessage(message interface{}, conn net.Conn) {
 		board := message.Board
 		// print state
 		fmt.Printf("Server sent us a board!\n%s\n", board)
+		if board.GetState() != PLAYING {
+			fmt.Println("Game over")
+		}
+
 		reply, err := readMove(board)
 		if err != nil {
 			fmt.Println(err)
 			// retry handling
-			handleServerMessage(message, conn)
+			client.handleMessage(message)
 		}
-		sendClientMessage(conn, reply)
+		client.sendMessage(reply)
 	case ErrorMessage:
 		fmt.Printf("Error: %s\n", message.Text)
 	case HelloMessage:
 		fmt.Printf("%s\nYour player is %s\n", message.Text, message.AssignedPlayer)
+		client.player = message.AssignedPlayer
 	default:
 		log.Printf("Unsupported message type: %T", message)
 	}
@@ -105,11 +117,11 @@ func readInput(reader *bufio.Reader) (string, error) {
 	return strings.Trim(input, "\n"), nil
 }
 
-func sendClientMessage(conn net.Conn, message interface{}) {
+func (client *Client) sendMessage(message interface{}) {
 	data, err := MarshalMessage(message)
 	if err != nil {
 		log.Printf("Error marshaling message: %s\n", err)
 		return
 	}
-	fmt.Fprintln(conn, data)
+	fmt.Fprintln(client.conn, data)
 }
