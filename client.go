@@ -14,6 +14,7 @@ type Client struct {
 	conn       net.Conn
 	connReader *bufio.Reader
 	player     Player
+	board      *Board
 }
 
 // connect to the server, send string, receive a single response
@@ -35,7 +36,6 @@ func startClient(addr string) {
 }
 
 func (client *Client) readMessage() interface{} {
-	fmt.Println("Reading server message tbh")
 	serverData, err := client.connReader.ReadString('\n')
 	if err == io.EOF {
 		fmt.Println("Server closed the connection")
@@ -51,7 +51,6 @@ func (client *Client) readMessage() interface{} {
 		fmt.Printf("Error unmarshaling server message: %s\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("GOT MESSAGE FROM ZERVER :DDDD %T %v\n", message, message)
 	return message
 }
 
@@ -61,10 +60,12 @@ func (client *Client) handleMessage(message interface{}) {
 		fmt.Println("Waiting for another player to connect")
 	case BoardMessage:
 		board := message.Board
+		client.board = board
 		// print state
 		fmt.Printf("Server sent us a board!\n%s\n", board)
 		if board.GetState() != PLAYING {
 			fmt.Println("Game over")
+			return
 		}
 		if client.player != board.NextTurn {
 			fmt.Println("Waiting for the opponent")
@@ -79,6 +80,18 @@ func (client *Client) handleMessage(message interface{}) {
 		client.sendMessage(reply)
 	case ErrorMessage:
 		fmt.Printf("Error: %s\n", message.Text)
+		if client.board == nil {
+			return
+		}
+		// assuming the Error was an incorrect move, retry reading
+		// user input
+		reply, err := readMove(client.board)
+		if err != nil {
+			fmt.Println(err)
+			// retry handling
+			client.handleMessage(message)
+		}
+		client.sendMessage(reply)
 	case HelloMessage:
 		fmt.Printf("%s\nYour player is %s\n", message.Text, message.AssignedPlayer)
 		client.player = message.AssignedPlayer
