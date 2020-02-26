@@ -23,21 +23,8 @@ func startClient(addr string) {
 	sockReader := bufio.NewReader(conn)
 	for {
 		message := readServerMessage(sockReader)
-		handleServerMessage(message)
+		handleServerMessage(message, conn)
 	}
-}
-
-func readInput(reader *bufio.Reader) string {
-	input, err := reader.ReadString('\n')
-	if err == io.EOF {
-		fmt.Println("Exiting")
-		os.Exit(1)
-	}
-	if err != nil {
-		fmt.Printf("Error reading userInput: %s\n", err)
-		os.Exit(1)
-	}
-	return strings.Trim(input, "\n")
 }
 
 // todo: move to client package and rename to readMessage
@@ -61,12 +48,21 @@ func readServerMessage(reader *bufio.Reader) interface{} {
 }
 
 // todo: move to client package and rename to handleMessage
-func handleServerMessage(message interface{}) {
+func handleServerMessage(message interface{}, conn net.Conn) {
 	switch message := message.(type) {
 	case WaitingMessage:
 		fmt.Println("Waiting for another player to connect")
 	case BoardMessage:
-		fmt.Printf("Server sent us a board!\n%s\n", message.Board)
+		board := message.Board
+		// print state
+		fmt.Printf("Server sent us a board!\n%s\n", board)
+		reply, err := readMove(board)
+		if err != nil {
+			fmt.Println(err)
+			// retry handling
+			handleServerMessage(message, conn)
+		}
+		sendClientMessage(conn, reply)
 	case ErrorMessage:
 		fmt.Printf("Error: %s\n", message.Text)
 	case HelloMessage:
@@ -74,4 +70,46 @@ func handleServerMessage(message interface{}) {
 	default:
 		log.Printf("Unsupported message type: %T", message)
 	}
+}
+
+func readMove(board *Board) (MoveMessage, error) {
+	var result MoveMessage
+	var x, y int
+	fmt.Println("Enter x coordinate")
+	_, err := fmt.Scanf("%d\n", &x)
+	if err != nil {
+		return result, err
+	}
+	fmt.Println("Enter y coordinate")
+	_, err = fmt.Scanf("%d\n", &y)
+	if err != nil {
+		return result, err
+	}
+	err = board.validateCoordinates(x, y)
+	if err != nil {
+		return result, err
+	}
+	return MoveMessage{x, y}, nil
+}
+
+func readInput(reader *bufio.Reader) (string, error) {
+	input, err := reader.ReadString('\n')
+	if err == io.EOF {
+		fmt.Println("Exiting")
+		os.Exit(1)
+	}
+	if err != nil {
+		fmt.Printf("Error reading userInput: %s\n", err)
+		return "", err
+	}
+	return strings.Trim(input, "\n"), nil
+}
+
+func sendClientMessage(conn net.Conn, message interface{}) {
+	data, err := MarshalMessage(message)
+	if err != nil {
+		log.Printf("Error marshaling message: %s\n", err)
+		return
+	}
+	fmt.Fprintln(conn, data)
 }

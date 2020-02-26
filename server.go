@@ -7,11 +7,13 @@ import (
 	"log"
 	"net"
 	"strings"
+	"sync"
 	"time"
 )
 
 type Server struct {
 	board        *Board
+	gameLock     sync.Mutex
 	xConn, yConn net.Conn
 	serverSock   net.Listener
 	numClients   int
@@ -75,7 +77,7 @@ func (server *Server) handleClient(player Player, conn net.Conn) {
 			log.Printf("Error reading client message: %s\n", err)
 			return
 		}
-		server.handleMessage(conn, message)
+		server.handleMessage(player, conn, message)
 	}
 }
 
@@ -97,7 +99,7 @@ func readMessage(reader *bufio.Reader) (interface{}, error) {
 	return message, nil
 }
 
-func (server *Server) handleMessage(conn net.Conn, message interface{}) {
+func (server *Server) handleMessage(player Player, conn net.Conn, message interface{}) {
 	var data string
 	if !server.gameStarted {
 		// ignore client messages until the game has started
@@ -105,18 +107,26 @@ func (server *Server) handleMessage(conn net.Conn, message interface{}) {
 	}
 	switch message := message.(type) {
 	case MoveMessage:
-		// todo actually perform the move
-		sendMessage(conn, BoardMessage{server.board})
+		server.gameLock.Lock()
+		err := server.board.MakeMove(player, message.X, message.Y)
+		server.gameLock.Unlock()
+		if err != nil {
+			sendMessage(conn, ErrorMessage{err.Error()})
+		} else {
+			sendMessage(conn, BoardMessage{server.board})
+		}
 	default:
 		log.Printf("Unsupported message type: %T", message)
 	}
 	fmt.Fprintln(conn, data)
 }
 
+// todo check if this is a blocking call
 func sendMessage(conn net.Conn, message interface{}) {
 	data, err := MarshalMessage(message)
 	if err != nil {
 		log.Printf("Error marshaling message: %s\n", err)
+		return
 	}
 	fmt.Fprintln(conn, data)
 }
