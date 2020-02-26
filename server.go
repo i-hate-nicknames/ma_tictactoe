@@ -20,13 +20,27 @@ type Server struct {
 	gameStarted  bool
 }
 
+func startServer(port string, done chan<- bool) {
+	serverSock, err := net.Listen("tcp4", ":"+port)
+	if err != nil {
+		log.Fatalf("Failed to start a server: %s\n", err)
+	}
+	done <- true
+	board := MakeBoard(3)
+	server := &Server{board: board, serverSock: serverSock}
+	server.run()
+}
+
 type ConnectedPlayer struct {
-	player       Player
-	conn         net.Conn
-	stateUpdates chan bool
+	player          Player
+	conn            net.Conn
+	opponentUpdates <-chan bool
+	myUpdates       chan<- bool
 }
 
 func (server *Server) run() {
+	updatesX := make(chan bool)
+	updatesO := make(chan bool)
 	for {
 		// stop accepting any new clients when the game has started
 		if server.gameStarted {
@@ -37,13 +51,22 @@ func (server *Server) run() {
 			log.Printf("Failed to handle a client: %s\n", err)
 			continue
 		}
-		stateUpdates := make(chan bool)
 		if server.numClients == 0 {
-			connPlayer := &ConnectedPlayer{player: PLAYER_X, conn: conn, stateUpdates: stateUpdates}
+			connPlayer := &ConnectedPlayer{
+				player:          PLAYER_X,
+				conn:            conn,
+				opponentUpdates: updatesO,
+				myUpdates:       updatesX,
+			}
 			server.xConn = connPlayer
 			go server.handleClient(connPlayer)
 		} else {
-			connPlayer := &ConnectedPlayer{player: PLAYER_O, conn: conn, stateUpdates: stateUpdates}
+			connPlayer := &ConnectedPlayer{
+				player:          PLAYER_O,
+				conn:            conn,
+				opponentUpdates: updatesX,
+				myUpdates:       updatesO,
+			}
 			server.yConn = connPlayer
 			go server.handleClient(connPlayer)
 		}
@@ -55,21 +78,8 @@ func (server *Server) run() {
 	}
 }
 
-func startServer(port string, done chan<- bool) {
-	serverSock, err := net.Listen("tcp4", ":"+port)
-	if err != nil {
-		log.Fatalf("Failed to start a server: %s\n", err)
-	}
-	done <- true
-	board := MakeBoard(3)
-	server := &Server{board: board, serverSock: serverSock}
-	server.run()
-
-}
-
 // handle a client: reply to every message with modified client message
 func (server *Server) handleClient(connPlayer *ConnectedPlayer) {
-	reader := bufio.NewReader(connPlayer.conn)
 	defer connPlayer.conn.Close()
 	sendMessage(connPlayer, HelloMessage{"Welcome to this tic tac toe server!", connPlayer.player})
 	if server.gameStarted {
@@ -81,13 +91,28 @@ func (server *Server) handleClient(connPlayer *ConnectedPlayer) {
 		}
 		sendMessage(connPlayer, BoardMessage{server.board})
 	}
+	clientChan := make(chan interface{}, 0)
+	go readClient(connPlayer, clientChan)
+	for {
+		select {
+		case clientMessage := <-clientChan:
+			server.handleMessage(connPlayer, clientMessage)
+		case <-connPlayer.opponentUpdates:
+			sendMessage(connPlayer, BoardMessage{server.board})
+		}
+	}
+}
+
+// readClient reads messages from given player connection and puts them
+// on messages channel
+func readClient(connPlayer *ConnectedPlayer, messages chan<- interface{}) {
+	reader := bufio.NewReader(connPlayer.conn)
 	for {
 		message, err := readMessage(reader)
 		if err != nil {
 			log.Printf("Error reading client message: %s\n", err)
-			return
 		}
-		server.handleMessage(connPlayer, message)
+		messages <- message
 	}
 }
 
@@ -123,6 +148,7 @@ func (server *Server) handleMessage(connPlayer *ConnectedPlayer, message interfa
 			sendMessage(connPlayer, ErrorMessage{err.Error()})
 		} else {
 			sendMessage(connPlayer, BoardMessage{server.board})
+			connPlayer.myUpdates <- true
 		}
 	default:
 		log.Printf("Unsupported message type: %T", message)
