@@ -100,7 +100,6 @@ func readMessage(reader *bufio.Reader) (interface{}, error) {
 }
 
 func (server *Server) handleMessage(player Player, conn net.Conn, message interface{}) {
-	var data string
 	if !server.gameStarted {
 		// ignore client messages until the game has started
 		return
@@ -118,7 +117,6 @@ func (server *Server) handleMessage(player Player, conn net.Conn, message interf
 	default:
 		log.Printf("Unsupported message type: %T", message)
 	}
-	fmt.Fprintln(conn, data)
 }
 
 // todo check if this is a blocking call
