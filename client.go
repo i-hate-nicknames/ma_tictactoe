@@ -66,7 +66,10 @@ func (client *Client) handleMessage(message interface{}) {
 		if board.GetState() != PLAYING {
 			fmt.Println("Game over")
 		}
-
+		if client.player != board.NextTurn {
+			fmt.Println("Waiting for the opponent")
+			return
+		}
 		reply, err := readMove(board)
 		if err != nil {
 			fmt.Println(err)
