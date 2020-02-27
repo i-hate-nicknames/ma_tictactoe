@@ -20,20 +20,30 @@ func SendMessage(conn net.Conn, message interface{}) {
 	fmt.Fprintln(conn, data)
 }
 
-// read one client message data from the given reader, parse it
-// and return as a message struct
+func ReadMessages(conn net.Conn, messages chan<- interface{}, errors chan<- error) {
+	reader := bufio.NewReader(conn)
+	for {
+		message, err := ReadMessage(reader)
+		if err != nil {
+			errors <- err
+			return
+		}
+		messages <- message
+	}
+}
+
 func ReadMessage(reader *bufio.Reader) (interface{}, error) {
 	data, err := reader.ReadString('\n')
 	if err == io.EOF {
-		return nil, fmt.Errorf("client disconnected")
+		return nil, err
 	}
 	if err != nil {
-		return nil, fmt.Errorf("error reading from client %s", err)
+		return nil, err
 	}
 	data = strings.Trim(data, "\n")
 	message, err := UnmarshalMessage(data)
 	if err != nil {
-		return nil, fmt.Errorf("error when parsing client message: %s", err)
+		return nil, err
 	}
 	return message, nil
 }

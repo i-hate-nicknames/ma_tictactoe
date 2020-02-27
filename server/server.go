@@ -1,7 +1,8 @@
 package server
 
 import (
-	"bufio"
+	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -93,7 +94,8 @@ func (server *Server) handleClient(connPlayer *ConnectedPlayer) {
 		msg.SendMessage(connPlayer.conn, msg.BoardMessage{server.board})
 	}
 	clientChan := make(chan interface{}, 0)
-	go readClient(connPlayer, clientChan)
+	errChan := make(chan error)
+	go msg.ReadMessages(connPlayer.conn, clientChan, errChan)
 	for {
 		select {
 		case clientMessage := <-clientChan:
@@ -102,22 +104,18 @@ func (server *Server) handleClient(connPlayer *ConnectedPlayer) {
 			// todo: read a string from opponent updates, and dispatch on it
 			// handle disconnected opponent gracefuly (add Exit Message)
 			msg.SendMessage(connPlayer.conn, msg.BoardMessage{server.board})
+		case err := <-errChan:
+			if err == io.EOF {
+				fmt.Println("client disconnected")
+				// todo: maybe send update to the other client
+				os.Exit(1)
+			} else {
+				fmt.Println("Error reading message from client " + err.Error())
+				// todo: maybe check the error and ignore if it's not fatal,
+				// i.e. malformed message
+				os.Exit(1)
+			}
 		}
-	}
-}
-
-// todo: consider moving to messaging, adding error channel
-// readClient reads messages from given player connection and puts them
-// on messages channel
-func readClient(connPlayer *ConnectedPlayer, messages chan<- interface{}) {
-	reader := bufio.NewReader(connPlayer.conn)
-	for {
-		message, err := msg.ReadMessage(reader)
-		if err != nil {
-			log.Printf("Error reading client message: %s\n", err)
-			os.Exit(1)
-		}
-		messages <- message
 	}
 }
 
