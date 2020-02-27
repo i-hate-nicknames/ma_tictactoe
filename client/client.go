@@ -3,11 +3,8 @@ package client
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"log"
 	"net"
-	"os"
-	"strings"
 
 	"nvm.ga/mastersofcode/golang_2019/tictactoe/game"
 	msg "nvm.ga/mastersofcode/golang_2019/tictactoe/messaging"
@@ -20,8 +17,6 @@ type Client struct {
 	board      *game.Board
 }
 
-// connect to the server, send string, receive a single response
-// and print it
 func StartClient(addr string) {
 	log.Println("Starting client, connecting to " + addr)
 	conn, err := net.Dial("tcp4", addr)
@@ -33,28 +28,9 @@ func StartClient(addr string) {
 	sockReader := bufio.NewReader(conn)
 	client := &Client{conn: conn, connReader: sockReader, player: game.NO_PLAYER}
 	for {
-		message := client.readMessage()
+		message := msg.ReadServerMessage(sockReader)
 		client.handleMessage(message)
 	}
-}
-
-func (client *Client) readMessage() interface{} {
-	serverData, err := client.connReader.ReadString('\n')
-	if err == io.EOF {
-		fmt.Println("Server closed the connection")
-		os.Exit(1)
-	}
-	if err != nil {
-		fmt.Printf("Error reading reply from server: %s\n", err)
-		os.Exit(1)
-	}
-	serverData = strings.Trim(serverData, "\n")
-	message, err := msg.UnmarshalMessage(serverData)
-	if err != nil {
-		fmt.Printf("Error unmarshaling server message: %s\n", err)
-		os.Exit(1)
-	}
-	return message
 }
 
 func (client *Client) handleMessage(message interface{}) {
@@ -80,7 +56,7 @@ func (client *Client) handleMessage(message interface{}) {
 			// retry handling
 			client.handleMessage(message)
 		}
-		client.sendMessage(reply)
+		msg.SendMessage(client.conn, reply)
 	case msg.ErrorMessage:
 		fmt.Printf("Error: %s\n", message.Text)
 		if client.board == nil {
@@ -97,7 +73,7 @@ func (client *Client) handleMessage(message interface{}) {
 			// retry handling
 			client.handleMessage(message)
 		}
-		client.sendMessage(reply)
+		msg.SendMessage(client.conn, reply)
 	case msg.HelloMessage:
 		fmt.Printf("%s\nYour player is %s\n", message.Text, message.AssignedPlayer)
 		client.player = message.AssignedPlayer
@@ -124,26 +100,4 @@ func readMove(board *game.Board) (msg.MoveMessage, error) {
 		return result, err
 	}
 	return msg.MoveMessage{x, y}, nil
-}
-
-func readInput(reader *bufio.Reader) (string, error) {
-	input, err := reader.ReadString('\n')
-	if err == io.EOF {
-		fmt.Println("Exiting")
-		os.Exit(1)
-	}
-	if err != nil {
-		fmt.Printf("Error reading userInput: %s\n", err)
-		return "", err
-	}
-	return strings.Trim(input, "\n"), nil
-}
-
-func (client *Client) sendMessage(message interface{}) {
-	data, err := msg.MarshalMessage(message)
-	if err != nil {
-		log.Printf("Error marshaling message: %s\n", err)
-		return
-	}
-	fmt.Fprintln(client.conn, data)
 }
