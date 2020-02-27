@@ -83,6 +83,9 @@ func (client *Client) handleMessage(message interface{}) {
 		if client.board == nil {
 			return
 		}
+		// todo: Add multiple error messages, or error type to ErrorMessage
+		// dispatch on that and react accordingly: ask client to repeat input if
+		// it was invalid, or just show the message
 		// assuming the Error was an incorrect move, retry reading
 		// user input
 		reply, err := readMove(client.board)

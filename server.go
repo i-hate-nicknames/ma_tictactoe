@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -98,6 +99,8 @@ func (server *Server) handleClient(connPlayer *ConnectedPlayer) {
 		case clientMessage := <-clientChan:
 			server.handleMessage(connPlayer, clientMessage)
 		case <-connPlayer.opponentUpdates:
+			// todo: read a string from opponent updates, and dispatch on it
+			// handle disconnected opponent gracefuly (add Exit Message)
 			sendMessage(connPlayer, BoardMessage{server.board})
 		}
 	}
@@ -111,6 +114,7 @@ func readClient(connPlayer *ConnectedPlayer, messages chan<- interface{}) {
 		message, err := readMessage(reader)
 		if err != nil {
 			log.Printf("Error reading client message: %s\n", err)
+			os.Exit(1)
 		}
 		messages <- message
 	}
