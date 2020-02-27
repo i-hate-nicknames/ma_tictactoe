@@ -14,12 +14,11 @@ import (
 )
 
 type Server struct {
-	board        *game.Board
-	gameLock     sync.Mutex
-	xConn, yConn *ConnectedPlayer
-	serverSock   net.Listener
-	numClients   int
-	gameStarted  bool
+	board       *game.Board
+	gameLock    sync.Mutex
+	serverSock  net.Listener
+	numClients  int
+	gameStarted bool
 }
 
 func StartServer(port string, done chan<- bool) {
@@ -60,7 +59,6 @@ func (server *Server) run() {
 				opponentUpdates: updatesO,
 				myUpdates:       updatesX,
 			}
-			server.xConn = connPlayer
 			go server.handleClient(connPlayer)
 		} else {
 			connPlayer := &ConnectedPlayer{
@@ -69,7 +67,6 @@ func (server *Server) run() {
 				opponentUpdates: updatesX,
 				myUpdates:       updatesO,
 			}
-			server.yConn = connPlayer
 			go server.handleClient(connPlayer)
 		}
 
@@ -83,15 +80,15 @@ func (server *Server) run() {
 // handle a client: reply to every message with modified client message
 func (server *Server) handleClient(connPlayer *ConnectedPlayer) {
 	defer connPlayer.conn.Close()
-	msg.SendMessage(connPlayer.conn, msg.HelloMessage{"Welcome to this tic tac toe server!", connPlayer.player})
+	connPlayer.sendMessage(msg.HelloMessage{"Welcome to this tic tac toe server!", connPlayer.player})
 	if server.gameStarted {
-		msg.SendMessage(connPlayer.conn, msg.BoardMessage{server.board})
+		connPlayer.sendBoard(server.board)
 	} else {
-		msg.SendMessage(connPlayer.conn, msg.WaitingMessage{})
+		connPlayer.sendMessage(msg.WaitingMessage{})
 		for !server.gameStarted {
 			time.Sleep(300 * time.Millisecond)
 		}
-		msg.SendMessage(connPlayer.conn, msg.BoardMessage{server.board})
+		connPlayer.sendBoard(server.board)
 	}
 	clientChan := make(chan interface{}, 0)
 	errChan := make(chan error)
@@ -103,7 +100,7 @@ func (server *Server) handleClient(connPlayer *ConnectedPlayer) {
 		case <-connPlayer.opponentUpdates:
 			// todo: read a string from opponent updates, and dispatch on it
 			// handle disconnected opponent gracefuly (add Exit Message)
-			msg.SendMessage(connPlayer.conn, msg.BoardMessage{server.board})
+			connPlayer.sendBoard(server.board)
 		case err := <-errChan:
 			if err == io.EOF {
 				fmt.Println("client disconnected")
@@ -117,6 +114,14 @@ func (server *Server) handleClient(connPlayer *ConnectedPlayer) {
 			}
 		}
 	}
+}
+
+func (connPlayer *ConnectedPlayer) sendMessage(message interface{}) {
+	msg.SendMessage(connPlayer.conn, message)
+}
+
+func (connPlayer *ConnectedPlayer) sendBoard(board *game.Board) {
+	msg.SendMessage(connPlayer.conn, msg.BoardMessage{board})
 }
 
 func (server *Server) handleMessage(connPlayer *ConnectedPlayer, message interface{}) {
