@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"bufio"
@@ -10,10 +10,13 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"nvm.ga/mastersofcode/golang_2019/tictactoe/game"
+	msg "nvm.ga/mastersofcode/golang_2019/tictactoe/messaging"
 )
 
 type Server struct {
-	board        *Board
+	board        *game.Board
 	gameLock     sync.Mutex
 	xConn, yConn *ConnectedPlayer
 	serverSock   net.Listener
@@ -21,19 +24,19 @@ type Server struct {
 	gameStarted  bool
 }
 
-func startServer(port string, done chan<- bool) {
+func StartServer(port string, done chan<- bool) {
 	serverSock, err := net.Listen("tcp4", ":"+port)
 	if err != nil {
 		log.Fatalf("Failed to start a server: %s\n", err)
 	}
 	done <- true
-	board := MakeBoard(3)
+	board := game.MakeBoard(3)
 	server := &Server{board: board, serverSock: serverSock}
 	server.run()
 }
 
 type ConnectedPlayer struct {
-	player          Player
+	player          game.Player
 	conn            net.Conn
 	opponentUpdates <-chan bool
 	myUpdates       chan<- bool
@@ -54,7 +57,7 @@ func (server *Server) run() {
 		}
 		if server.numClients == 0 {
 			connPlayer := &ConnectedPlayer{
-				player:          PLAYER_X,
+				player:          game.PLAYER_X,
 				conn:            conn,
 				opponentUpdates: updatesO,
 				myUpdates:       updatesX,
@@ -63,7 +66,7 @@ func (server *Server) run() {
 			go server.handleClient(connPlayer)
 		} else {
 			connPlayer := &ConnectedPlayer{
-				player:          PLAYER_O,
+				player:          game.PLAYER_O,
 				conn:            conn,
 				opponentUpdates: updatesX,
 				myUpdates:       updatesO,
@@ -82,15 +85,15 @@ func (server *Server) run() {
 // handle a client: reply to every message with modified client message
 func (server *Server) handleClient(connPlayer *ConnectedPlayer) {
 	defer connPlayer.conn.Close()
-	sendMessage(connPlayer, HelloMessage{"Welcome to this tic tac toe server!", connPlayer.player})
+	sendMessage(connPlayer, msg.HelloMessage{"Welcome to this tic tac toe server!", connPlayer.player})
 	if server.gameStarted {
-		sendMessage(connPlayer, BoardMessage{server.board})
+		sendMessage(connPlayer, msg.BoardMessage{server.board})
 	} else {
-		sendMessage(connPlayer, WaitingMessage{})
+		sendMessage(connPlayer, msg.WaitingMessage{})
 		for !server.gameStarted {
 			time.Sleep(300 * time.Millisecond)
 		}
-		sendMessage(connPlayer, BoardMessage{server.board})
+		sendMessage(connPlayer, msg.BoardMessage{server.board})
 	}
 	clientChan := make(chan interface{}, 0)
 	go readClient(connPlayer, clientChan)
@@ -101,7 +104,7 @@ func (server *Server) handleClient(connPlayer *ConnectedPlayer) {
 		case <-connPlayer.opponentUpdates:
 			// todo: read a string from opponent updates, and dispatch on it
 			// handle disconnected opponent gracefuly (add Exit Message)
-			sendMessage(connPlayer, BoardMessage{server.board})
+			sendMessage(connPlayer, msg.BoardMessage{server.board})
 		}
 	}
 }
@@ -131,7 +134,7 @@ func readMessage(reader *bufio.Reader) (interface{}, error) {
 		return nil, fmt.Errorf("error reading from client %s", err)
 	}
 	data = strings.Trim(data, "\n")
-	message, err := UnmarshalMessage(data)
+	message, err := msg.UnmarshalMessage(data)
 	if err != nil {
 		return nil, fmt.Errorf("error when parsing client message: %s", err)
 	}
@@ -144,14 +147,14 @@ func (server *Server) handleMessage(connPlayer *ConnectedPlayer, message interfa
 		return
 	}
 	switch message := message.(type) {
-	case MoveMessage:
+	case msg.MoveMessage:
 		server.gameLock.Lock()
 		err := server.board.MakeMove(connPlayer.player, message.X, message.Y)
 		server.gameLock.Unlock()
 		if err != nil {
-			sendMessage(connPlayer, ErrorMessage{err.Error()})
+			sendMessage(connPlayer, msg.ErrorMessage{err.Error()})
 		} else {
-			sendMessage(connPlayer, BoardMessage{server.board})
+			sendMessage(connPlayer, msg.BoardMessage{server.board})
 			connPlayer.myUpdates <- true
 		}
 	default:
@@ -161,7 +164,7 @@ func (server *Server) handleMessage(connPlayer *ConnectedPlayer, message interfa
 
 // todo check if this is a blocking call
 func sendMessage(connPlayer *ConnectedPlayer, message interface{}) {
-	data, err := MarshalMessage(message)
+	data, err := msg.MarshalMessage(message)
 	if err != nil {
 		log.Printf("Error marshaling message: %s\n", err)
 		return

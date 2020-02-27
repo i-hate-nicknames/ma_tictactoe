@@ -1,9 +1,11 @@
-package main
+package messaging
 
 import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"nvm.ga/mastersofcode/golang_2019/tictactoe/game"
 )
 
 const (
@@ -18,7 +20,7 @@ const (
 type WaitingMessage struct{}
 
 type BoardMessage struct {
-	Board *Board
+	Board *game.Board
 }
 
 type MoveMessage struct {
@@ -31,7 +33,7 @@ type ErrorMessage struct {
 
 type HelloMessage struct {
 	Text           string
-	AssignedPlayer Player
+	AssignedPlayer game.Player
 }
 
 func getMessageType(message interface{}) (string, error) {

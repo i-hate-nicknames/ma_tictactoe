@@ -4,6 +4,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
+
+	"nvm.ga/mastersofcode/golang_2019/tictactoe/client"
+	"nvm.ga/mastersofcode/golang_2019/tictactoe/game"
+	"nvm.ga/mastersofcode/golang_2019/tictactoe/server"
 )
 
 var remoteAddr string
@@ -43,16 +47,16 @@ func main() {
 }
 
 func testGame() {
-	game := MakeBoard(3)
-	err := game.MakeMove(PLAYER_X, 0, 0)
-	err = game.MakeMove(PLAYER_O, 1, 0)
-	err = game.MakeMove(PLAYER_X, 0, 1)
-	err = game.MakeMove(PLAYER_O, 2, 0)
-	err = game.MakeMove(PLAYER_X, 0, 2)
+	board := game.MakeBoard(3)
+	err := board.MakeMove(game.PLAYER_X, 0, 0)
+	err = board.MakeMove(game.PLAYER_X, 0, 1)
+	err = board.MakeMove(game.PLAYER_O, 1, 0)
+	err = board.MakeMove(game.PLAYER_O, 2, 0)
+	err = board.MakeMove(game.PLAYER_X, 0, 2)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(game)
+	fmt.Println(board)
 }
 
 func runAsServer(port string) {
@@ -60,14 +64,14 @@ func runAsServer(port string) {
 	// todo abstract out
 	exit := make(chan bool, 1)
 	done := make(chan bool, 1)
-	go startServer(port, done)
+	go server.StartServer(port, done)
 	<-done
-	go startClient("127.0.0.1:" + port)
+	go client.StartClient("127.0.0.1:" + port)
 	<-exit
 }
 
 func runAsClient(addr string) {
 	exit := make(chan bool, 1)
-	go startClient(addr)
+	go client.StartClient(addr)
 	<-exit
 }

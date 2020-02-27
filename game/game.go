@@ -1,4 +1,4 @@
-package main
+package game
 
 import (
 	"fmt"
@@ -66,7 +66,7 @@ func (b *Board) MakeMove(player Player, x, y int) error {
 	if player != b.NextTurn {
 		return fmt.Errorf("Cannot make a move: it's not your turn, it's player %s", b.NextTurn)
 	}
-	err := b.validateCoordinates(x, y)
+	err := b.ValidateCoordinates(x, y)
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func (b *Board) MakeMove(player Player, x, y int) error {
 
 // GetValue returns value of the board at x, y
 func (b *Board) GetValue(x, y int) (Player, error) {
-	err := b.validateCoordinates(x, y)
+	err := b.ValidateCoordinates(x, y)
 	if err != nil {
 		return 0, err
 	}
@@ -107,7 +107,7 @@ func (b *Board) GetNextTurn() Player {
 
 // return nil if x, y coordinates are valid for this board
 // otherwise return error
-func (b *Board) validateCoordinates(x, y int) error {
+func (b *Board) ValidateCoordinates(x, y int) error {
 	var err error
 	if x < 0 || x >= b.Size {
 		err = fmt.Errorf("X coordinate must be within [0, %d]", b.Size-1)

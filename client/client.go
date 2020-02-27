@@ -1,4 +1,4 @@
-package main
+package client
 
 import (
 	"bufio"
@@ -8,18 +8,21 @@ import (
 	"net"
 	"os"
 	"strings"
+
+	"nvm.ga/mastersofcode/golang_2019/tictactoe/game"
+	msg "nvm.ga/mastersofcode/golang_2019/tictactoe/messaging"
 )
 
 type Client struct {
 	conn       net.Conn
 	connReader *bufio.Reader
-	player     Player
-	board      *Board
+	player     game.Player
+	board      *game.Board
 }
 
 // connect to the server, send string, receive a single response
 // and print it
-func startClient(addr string) {
+func StartClient(addr string) {
 	log.Println("Starting client, connecting to " + addr)
 	conn, err := net.Dial("tcp4", addr)
 	defer conn.Close()
@@ -28,7 +31,7 @@ func startClient(addr string) {
 		return
 	}
 	sockReader := bufio.NewReader(conn)
-	client := &Client{conn: conn, connReader: sockReader, player: NO_PLAYER}
+	client := &Client{conn: conn, connReader: sockReader, player: game.NO_PLAYER}
 	for {
 		message := client.readMessage()
 		client.handleMessage(message)
@@ -46,7 +49,7 @@ func (client *Client) readMessage() interface{} {
 		os.Exit(1)
 	}
 	serverData = strings.Trim(serverData, "\n")
-	message, err := UnmarshalMessage(serverData)
+	message, err := msg.UnmarshalMessage(serverData)
 	if err != nil {
 		fmt.Printf("Error unmarshaling server message: %s\n", err)
 		os.Exit(1)
@@ -56,14 +59,14 @@ func (client *Client) readMessage() interface{} {
 
 func (client *Client) handleMessage(message interface{}) {
 	switch message := message.(type) {
-	case WaitingMessage:
+	case msg.WaitingMessage:
 		fmt.Println("Waiting for another player to connect")
-	case BoardMessage:
+	case msg.BoardMessage:
 		board := message.Board
 		client.board = board
 		// print state
 		fmt.Printf("Server sent us a board!\n%s\n", board)
-		if board.GetState() != PLAYING {
+		if board.GetState() != game.PLAYING {
 			fmt.Println("Game over")
 			return
 		}
@@ -78,7 +81,7 @@ func (client *Client) handleMessage(message interface{}) {
 			client.handleMessage(message)
 		}
 		client.sendMessage(reply)
-	case ErrorMessage:
+	case msg.ErrorMessage:
 		fmt.Printf("Error: %s\n", message.Text)
 		if client.board == nil {
 			return
@@ -95,7 +98,7 @@ func (client *Client) handleMessage(message interface{}) {
 			client.handleMessage(message)
 		}
 		client.sendMessage(reply)
-	case HelloMessage:
+	case msg.HelloMessage:
 		fmt.Printf("%s\nYour player is %s\n", message.Text, message.AssignedPlayer)
 		client.player = message.AssignedPlayer
 	default:
@@ -103,8 +106,8 @@ func (client *Client) handleMessage(message interface{}) {
 	}
 }
 
-func readMove(board *Board) (MoveMessage, error) {
-	var result MoveMessage
+func readMove(board *game.Board) (msg.MoveMessage, error) {
+	var result msg.MoveMessage
 	var x, y int
 	fmt.Println("Enter x coordinate")
 	_, err := fmt.Scanf("%d\n", &x)
@@ -116,11 +119,11 @@ func readMove(board *Board) (MoveMessage, error) {
 	if err != nil {
 		return result, err
 	}
-	err = board.validateCoordinates(x, y)
+	err = board.ValidateCoordinates(x, y)
 	if err != nil {
 		return result, err
 	}
-	return MoveMessage{x, y}, nil
+	return msg.MoveMessage{x, y}, nil
 }
 
 func readInput(reader *bufio.Reader) (string, error) {
@@ -137,7 +140,7 @@ func readInput(reader *bufio.Reader) (string, error) {
 }
 
 func (client *Client) sendMessage(message interface{}) {
-	data, err := MarshalMessage(message)
+	data, err := msg.MarshalMessage(message)
 	if err != nil {
 		log.Printf("Error marshaling message: %s\n", err)
 		return
