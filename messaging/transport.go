@@ -11,7 +11,7 @@ import (
 )
 
 // todo check if this is a blocking call
-func SendMessage(conn net.Conn, message interface{}) {
+func SendMessage(conn net.Conn, message Message) {
 	data, err := MarshalMessage(message)
 	if err != nil {
 		log.Printf("Error marshaling message: %s\n", err)
@@ -20,7 +20,7 @@ func SendMessage(conn net.Conn, message interface{}) {
 	fmt.Fprintln(conn, data)
 }
 
-func ReadMessages(conn net.Conn, messages chan<- interface{}, errors chan<- error) {
+func ReadMessages(conn net.Conn, messages chan<- Message, errors chan<- error) {
 	reader := bufio.NewReader(conn)
 	for {
 		message, err := ReadMessage(reader)
@@ -32,7 +32,7 @@ func ReadMessages(conn net.Conn, messages chan<- interface{}, errors chan<- erro
 	}
 }
 
-func ReadMessage(reader *bufio.Reader) (interface{}, error) {
+func ReadMessage(reader *bufio.Reader) (Message, error) {
 	data, err := reader.ReadString('\n')
 	if err == io.EOF {
 		return nil, err
@@ -50,7 +50,7 @@ func ReadMessage(reader *bufio.Reader) (interface{}, error) {
 
 // todo: refactor both read message method into one, possibly by introducing
 // channels
-func ReadServerMessage(reader *bufio.Reader) interface{} {
+func ReadServerMessage(reader *bufio.Reader) Message {
 	serverData, err := reader.ReadString('\n')
 	if err == io.EOF {
 		fmt.Println("Server closed the connection")

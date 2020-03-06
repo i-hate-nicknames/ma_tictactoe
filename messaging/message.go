@@ -36,38 +36,41 @@ type HelloMessage struct {
 	AssignedPlayer game.Player
 }
 
-func getMessageType(message interface{}) (string, error) {
-	switch message.(type) {
-	case WaitingMessage:
-		return MSG_WAITING_CONNECT, nil
-	case MoveMessage:
-		return MSG_MOVE, nil
-	case BoardMessage:
-		return MSG_BOARD, nil
-	case ErrorMessage:
-		return MSG_ERROR, nil
-	case HelloMessage:
-		return MSG_HELLO, nil
-	default:
-		return "", fmt.Errorf("%v of type %T is not a valid message to marshal", message, message)
-	}
+type Message interface {
+	GetType() string
+}
+
+func (m HelloMessage) GetType() string {
+	return MSG_HELLO
+}
+
+func (m WaitingMessage) GetType() string {
+	return MSG_WAITING_CONNECT
+}
+
+func (m MoveMessage) GetType() string {
+	return MSG_MOVE
+}
+
+func (m BoardMessage) GetType() string {
+	return MSG_BOARD
+}
+
+func (m ErrorMessage) GetType() string {
+	return MSG_ERROR
 }
 
 // MarshalMessage to a string, ready to be sent over a wire
-func MarshalMessage(message interface{}) (string, error) {
-	msgType, err := getMessageType(message)
-	if err != nil {
-		return "", err
-	}
+func MarshalMessage(message Message) (string, error) {
 	payload, err := json.Marshal(message)
 	if err != nil {
 		return "", err
 	}
-	return msgType + SEPARATOR + string(payload), nil
+	return message.GetType() + SEPARATOR + string(payload), nil
 }
 
 // UnmarshalMessage produces message of a correct type from a string
-func UnmarshalMessage(marshalled string) (interface{}, error) {
+func UnmarshalMessage(marshalled string) (Message, error) {
 	parts := strings.Split(marshalled, SEPARATOR)
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("Unmarshal: malformed message: %s", marshalled)

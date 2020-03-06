@@ -33,7 +33,7 @@ func StartClient(addr string) {
 	}
 }
 
-func (client *Client) handleMessage(message interface{}) {
+func (client *Client) handleMessage(message msg.Message) {
 	switch message := message.(type) {
 	case msg.WaitingMessage:
 		fmt.Println("Waiting for another player to connect")

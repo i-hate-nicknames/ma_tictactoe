@@ -90,7 +90,7 @@ func (server *Server) handleClient(connPlayer *ConnectedPlayer) {
 		}
 		connPlayer.sendBoard(server.board)
 	}
-	clientChan := make(chan interface{}, 0)
+	clientChan := make(chan msg.Message, 0)
 	errChan := make(chan error)
 	go msg.ReadMessages(connPlayer.conn, clientChan, errChan)
 	for {
@@ -116,7 +116,7 @@ func (server *Server) handleClient(connPlayer *ConnectedPlayer) {
 	}
 }
 
-func (connPlayer *ConnectedPlayer) sendMessage(message interface{}) {
+func (connPlayer *ConnectedPlayer) sendMessage(message msg.Message) {
 	msg.SendMessage(connPlayer.conn, message)
 }
 
@@ -124,7 +124,7 @@ func (connPlayer *ConnectedPlayer) sendBoard(board *game.Board) {
 	msg.SendMessage(connPlayer.conn, msg.BoardMessage{board})
 }
 
-func (server *Server) handleMessage(connPlayer *ConnectedPlayer, message interface{}) {
+func (server *Server) handleMessage(connPlayer *ConnectedPlayer, message msg.Message) {
 	if !server.gameStarted {
 		// ignore client messages until the game has started
 		return
