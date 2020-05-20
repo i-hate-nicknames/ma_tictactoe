@@ -1,5 +1,5 @@
 # ma_tictactoe
-Tic-tac-toe CLI game, implemented as a taks during MA golang course.
+Tic-tac-toe CLI game, a homework for MA golang course.
 # Usage
 Build with `go build -o tictactoe`.
 Run as a server `tictactoe -p 9001`.
